@@ -27,7 +27,7 @@ const bookingSchema = new mongoose.Schema({
   phone: String,
   date: String,
   time: String,
-  services: String,
+  services: [String],
   total: Number,
   status: { type: String, default: 'ожидает' }, // пригодится для кнопок "подтвердить/отменить"
   createdAt: { type: Date, default: Date.now }
