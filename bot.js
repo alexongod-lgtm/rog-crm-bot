@@ -89,14 +89,14 @@ app.post('/api/booking', async (req, res) => {
   try {
     // Создаем новую запись по нашему шаблону
     const newBooking = new Booking({
-      masterId: bookingData.masterId,
-      masterName: bookingData.masterName,
-      name: bookingData.name,
-      phone: bookingData.phone,
-      date: bookingData.date,
-      time: bookingData.time,
-      services: bookingData.services,
-      total: bookingData.total
+      masterId: masterId,
+      masterName: masterName,
+      name: name,
+      phone: phone,
+      date: date,
+      time: time,
+      services: services,
+      total: total
     });
     
     // Сохраняем в MongoDB
