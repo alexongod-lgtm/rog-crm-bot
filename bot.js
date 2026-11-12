@@ -63,7 +63,7 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(chatId, '✂️ Привет, мастер! Вот твоя рабочая панель.', {
       reply_markup: {
         keyboard: [
-          ['📅 Мое расписание на сегодня']
+          ['📋 Мое расписание на сегодня']
         ],
         resize_keyboard: true
       }
@@ -117,7 +117,8 @@ bot.on('message', async (msg) => {
       if (bookings.length === 0) {
         bot.sendMessage(chatId, `На сегодня (${todayString}) записей пока нет. Отдыхай! ☕`);
       } else {
-        let replyText = `📅 *Твои записи на сегодня (${todayString}):*\n\n`;
+        let replyText = `📋 *Твои записи на сегодня (${todayString}):*\n\n`;
+        
         bookings.forEach((b, index) => {
           replyText += `${index + 1}. ⏰ *${b.time}* - ${b.name}\n`;
           replyText += `   📞 ${b.phone}\n`;
@@ -125,6 +126,7 @@ bot.on('message', async (msg) => {
           replyText += `   💰 Сумма: ${b.total} руб.\n`;
           replyText += `   Статус: _${b.status}_\n\n`;
         });
+        
         bot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
       }
     }
@@ -160,7 +162,7 @@ app.post('/api/booking', async (req, res) => {
   } catch (error) {
     console.error('❌ Ошибка при сохранении в базу:', error);
   }
-  const tgMessage = `🔥 *Новая запись (РОГ Сочи)*\n\n👤 *Имя:* ${name}\n📞 *Телефон:* ${phone}\n\n✂️ *Мастер:* ${masterName}\n📅 *Дата:* ${date}, ${time}\n📋 *Услуги:* ${services.join(', ')}\n💰 *Сумма:* ${total} ₽`;
+  const tgMessage = `🔥 *Новая запись (РОГ Сочи)*\n\n👤 *Имя:* ${name}\n📞 *Телефон:* ${phone}\n\n✂️ *Мастер:* ${masterName}\n📋 *Дата:* ${date}, ${time}\n📋 *Услуги:* ${services.join(', ')}\n💰 *Сумма:* ${total} ₽`;
 
   // 1. Всегда отправляем копию владельцу
   bot.sendMessage(OWNER_ID, tgMessage, { parse_mode: 'Markdown' }).catch(console.error);
