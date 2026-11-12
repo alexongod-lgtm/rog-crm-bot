@@ -83,6 +83,19 @@ bot.onText(/\/start/, (msg) => {
 
 // Обработка всех текстовых сообщений (нажатий на кнопки)
 // Обработка всех текстовых сообщений (нажатий на кнопки)
+
+// Функция для получения записей мастера на конкретную дату
+async function getMasterBookingsByDate(masterId, dateString) {
+  try {
+    // Ищем в базе записи, где совпадают masterId и date
+    const bookings = await Booking.find({ masterId: masterId, date: dateString });
+    return bookings;
+  } catch (error) {
+    console.error('Ошибка при поиске записей в базе:', error);
+    return []; // В случае ошибки возвращаем пустой список
+  }
+}
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
