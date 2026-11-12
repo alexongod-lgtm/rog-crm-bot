@@ -88,7 +88,7 @@ bot.on('message', async (msg) => {
   const text = msg.text;
 
   console.log(`[DEBUG] Получено сообщение от ${chatId}: ${text}`); 
-  const isMaster = Object.values(MASTERS).includes(chatId.toString());
+  const isMaster = Object.values(MASTERS).map(id => id.toString()).includes(chatId.toString());
   console.log(`[DEBUG] Пользователь ${chatId} является мастером: ${isMaster}`);
 
   // Игнорируем сообщения без текста (например, фото или стикеры) и команду /start
@@ -117,7 +117,7 @@ bot.on('message', async (msg) => {
         const options = { day: 'numeric', month: 'short' };
         const todayString = today.toLocaleDateString('ru-RU', options).replace('.', ''); 
 
-        const masterId = Object.keys(MASTERS).find(key => MASTERS[key] === chatId.toString());
+        const masterId = Object.keys(MASTERS).find(key => MASTERS[key].toString() === chatId.toString());
         const bookings = await getMasterBookingsByDate(masterId, todayString);
 
         if (!bookings || bookings.length === 0) {
