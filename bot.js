@@ -126,9 +126,13 @@ bot.on('message', async (msg) => {
     // Используем .includes(), чтобы бот смотрел только на буквы, игнорируя смайлики
     if (text.includes('Мое расписание на сегодня')) {
       try {
-        const today = new Date();
-        const options = { day: 'numeric', month: 'short' };
-        const todayString = today.toLocaleDateString('ru-RU', options).replace('.', ''); 
+       // 1. Получаем текущее время по Москве (Сочи), игнорируя часовой пояс сервера Render
+       const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+       const day = now.getDate();
+       
+       // 2. Жестко задаем месяцы в том виде, в котором их присылает твой виджет
+       const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+       const todayString = `${day} ${months[now.getMonth()]}`;
 
         const masterId = Object.keys(MASTERS).find(key => MASTERS[key].toString() === chatId.toString());
         const bookings = await getMasterBookingsByDate(masterId, todayString);
