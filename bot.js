@@ -87,6 +87,10 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
+  console.log(`[DEBUG] Получено сообщение от ${chatId}: ${text}`); 
+  const isMaster = Object.values(MASTERS).includes(chatId.toString());
+  console.log(`[DEBUG] Пользователь ${chatId} является мастером: ${isMaster}`);
+
   // Игнорируем сообщения без текста (например, фото или стикеры) и команду /start
   if (!text || text === '/start') return;
 
@@ -104,7 +108,6 @@ bot.on('message', async (msg) => {
   }
 
   // 2. ЛОГИКА МАСТЕРОВ
-  const isMaster = Object.values(MASTERS).includes(chatId.toString());
 
   if (isMaster) {
     // Используем .includes(), чтобы бот смотрел только на буквы, игнорируя смайлики
