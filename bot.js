@@ -10,7 +10,7 @@ const WEB_APP_URL = 'https://sites.google.com/view/rogbarber/full-page-embed/'; 
 const OWNER_ID = 564704489; // Вставь свой личный ID (узнай в @getmyid_bot)
 const MASTERS = {
   '1': 536367354, // Личный ID Никиты Рогова
-  '2': 333333333, // Личный ID Максима Белова
+  '2': 6613083688, // Личный ID Максима Белова
   '3': 444444444  // Личный ID Дмитрия Волкова
 };
 // Подключение к базе данных MongoDB
