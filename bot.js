@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const cors = require('cors');
-
+const mongoose = require('mongoose');
 // 1. ВСТАВЬ СЮДА СВОИ ДАННЫЕ
 const TOKEN = '9017961379:AAH1uQEJ4Txc5o89OUlFi0TMqo0WpAIhY14';
 const WEB_APP_URL = 'https://sites.google.com/view/rogbarber/full-page-embed/'; // Ссылка на твой виджет Netlify
@@ -13,7 +13,27 @@ const MASTERS = {
   '2': 333333333, // Личный ID Максима Белова
   '3': 444444444  // Личный ID Дмитрия Волкова
 };
+// Подключение к базе данных MongoDB
+const MONGODB_URI = 'mongodb+srv://alexongod_db_user:LASyPhoAPxm1oI1m@rogdata.ldhqx9k.mongodb.net/rog_crm?retryWrites=true&w=majority';
 
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ База данных MongoDB успешно подключена!'))
+  .catch(err => console.error('❌ Ошибка подключения к базе:', err));
+  // Шаблон заявки для базы данных
+const bookingSchema = new mongoose.Schema({
+  masterId: String,
+  masterName: String,
+  name: String,
+  phone: String,
+  date: String,
+  time: String,
+  services: String,
+  total: Number,
+  status: { type: String, default: 'ожидает' }, // пригодится для кнопок "подтвердить/отменить"
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Booking = mongoose.model('Booking', bookingSchema);
 // Инициализация бота и сервера
 const bot = new TelegramBot(TOKEN, { polling: true });
 const app = express();
@@ -64,9 +84,27 @@ bot.onText(/\/start/, (msg) => {
 // ==========================================
 // API: ПРИЕМ ЗАЯВОК С ВИДЖЕТА И МАРШРУТИЗАЦИЯ
 // ==========================================
-app.post('/api/booking', (req, res) => {
+app.post('/api/booking', async (req, res) => {
   const { masterId, masterName, name, phone, date, time, services, total } = req.body;
-
+  try {
+    // Создаем новую запись по нашему шаблону
+    const newBooking = new Booking({
+      masterId: bookingData.masterId,
+      masterName: bookingData.masterName,
+      name: bookingData.name,
+      phone: bookingData.phone,
+      date: bookingData.date,
+      time: bookingData.time,
+      services: bookingData.services,
+      total: bookingData.total
+    });
+    
+    // Сохраняем в MongoDB
+    await newBooking.save();
+    console.log('✅ Новая запись успешно сохранена в базу!');
+  } catch (error) {
+    console.error('❌ Ошибка при сохранении в базу:', error);
+  }
   const tgMessage = `🔥 *Новая запись (РОГ Сочи)*\n\n👤 *Имя:* ${name}\n📞 *Телефон:* ${phone}\n\n✂️ *Мастер:* ${masterName}\n📅 *Дата:* ${date}, ${time}\n📋 *Услуги:* ${services.join(', ')}\n💰 *Сумма:* ${total} ₽`;
 
   // 1. Всегда отправляем копию владельцу
