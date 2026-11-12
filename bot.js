@@ -82,23 +82,24 @@ bot.onText(/\/start/, (msg) => {
 });
 
 // Обработка всех текстовых сообщений (нажатий на кнопки)
+// Обработка всех текстовых сообщений (нажатий на кнопки)
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  // Если это команда /start, игнорируем ее здесь (она обрабатывается выше)
-  if (text === '/start') return;
+  // Игнорируем сообщения без текста (например, фото или стикеры) и команду /start
+  if (!text || text === '/start') return;
 
   // 1. ЛОГИКА АДМИНА (ВЛАДЕЛЬЦА)
   if (chatId == OWNER_ID) {
-    if (text === '📊 Статистика за день') {
+    if (text.includes('Статистика за день')) {
       bot.sendMessage(chatId, '📊 *Статистика за сегодня*\n\nНовых записей: 0\nСумма: 0 руб.\n\n_(Скоро мы привяжем сюда реальные цифры)_', { parse_mode: 'Markdown' });
     } 
-    else if (text === '👥 Все записи') {
+    else if (text.includes('Все записи')) {
       bot.sendMessage(chatId, '👥 *Список записей*\n\nЗдесь будет выводиться расписание на ближайшие дни.', { parse_mode: 'Markdown' });
     }
-    else if (text === '⚙️ Настройки бота') {
-      bot.sendMessage(chatId, '⚙️ *Настройки*\n\nРаздел в разработке. Здесь можно будет добавлять мастеров и менять график.', { parse_mode: 'Markdown' });
+    else if (text.includes('Настройки бота')) {
+      bot.sendMessage(chatId, '⚙️ *Настройки*\n\nРаздел в разработке.', { parse_mode: 'Markdown' });
     }
   }
 
@@ -106,31 +107,35 @@ bot.on('message', async (msg) => {
   const isMaster = Object.values(MASTERS).includes(chatId.toString());
 
   if (isMaster) {
-    if (text === '📋 Мое расписание на сегодня') {
-      const today = new Date();
-      const options = { day: 'numeric', month: 'short' };
-      const todayString = today.toLocaleDateString('ru-RU', options).replace('.', ''); 
+    // Используем .includes(), чтобы бот смотрел только на буквы, игнорируя смайлики
+    if (text.includes('Мое расписание на сегодня')) {
+      try {
+        const today = new Date();
+        const options = { day: 'numeric', month: 'short' };
+        const todayString = today.toLocaleDateString('ru-RU', options).replace('.', ''); 
 
-      const masterId = Object.keys(MASTERS).find(key => MASTERS[key] === chatId.toString());
-      const bookings = await getMasterBookingsByDate(masterId, todayString);
+        const masterId = Object.keys(MASTERS).find(key => MASTERS[key] === chatId.toString());
+        const bookings = await getMasterBookingsByDate(masterId, todayString);
 
-      if (bookings.length === 0) {
-        bot.sendMessage(chatId, `На сегодня (${todayString}) записей пока нет. Отдыхай! ☕`);
-      } else {
-        let replyText = `📋 *Твои записи на сегодня (${todayString}):*\n\n`;
-        
-        bookings.forEach((b, index) => {
-          replyText += `${index + 1}. ⏰ *${b.time}* - ${b.name}\n`;
-          replyText += `   📞 ${b.phone}\n`;
-          replyText += `   ✂️ Услуги: ${b.services.join(', ')}\n`; 
-          replyText += `   💰 Сумма: ${b.total} руб.\n`;
-          replyText += `   Статус: _${b.status}_\n\n`;
-        });
-        
-        bot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
+        if (!bookings || bookings.length === 0) {
+          bot.sendMessage(chatId, `На сегодня (${todayString}) записей пока нет. Отдыхай! ☕`);
+        } else {
+          let replyText = `📅 *Твои записи на сегодня (${todayString}):*\n\n`;
+          bookings.forEach((b, index) => {
+            replyText += `${index + 1}. ⏰ *${b.time}* - ${b.name}\n`;
+            replyText += `   📞 ${b.phone}\n`;
+            replyText += `   ✂️ Услуги: ${b.services.join(', ')}\n`; 
+            replyText += `   💰 Сумма: ${b.total} руб.\n`;
+            replyText += `   Статус: _${b.status}_\n\n`;
+          });
+          bot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
+        }
+      } catch (error) {
+        // Если что-то сломается внутри сервера, бот пришлет ошибку прямо в чат!
+        bot.sendMessage(chatId, '❌ Произошла ошибка: ' + error.message);
       }
     }
-    else if (text === '🗓 Календарь' || text === '📖 Моя история') {
+    else if (text.includes('Календарь') || text.includes('Моя история')) {
        bot.sendMessage(chatId, 'Раздел в разработке 🛠️');
     }
   }
