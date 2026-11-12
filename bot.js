@@ -58,7 +58,7 @@ bot.onText(/\/start/, (msg) => {
       }
     });
 
-  } else if (Object.values(MASTERS).includes(chatId)) {
+  } else if (Object.values(MASTERS).map(String).includes(String(chatId))) {
     // МЕНЮ МАСТЕРА
     bot.sendMessage(chatId, '✂️ Привет, мастер! Вот твоя рабочая панель.', {
       reply_markup: {
@@ -80,6 +80,61 @@ bot.onText(/\/start/, (msg) => {
     });
   }
 });
+
+// Обработка всех текстовых сообщений (нажатий на кнопки)
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text;
+
+  // Если это команда /start, игнорируем ее здесь (она обрабатывается выше)
+  if (text === '/start') return;
+
+  // 1. ЛОГИКА АДМИНА (ВЛАДЕЛЬЦА)
+  if (chatId == OWNER_ID) {
+    if (text === '📊 Статистика за день') {
+      bot.sendMessage(chatId, '📊 *Статистика за сегодня*\n\nНовых записей: 0\nСумма: 0 руб.\n\n_(Скоро мы привяжем сюда реальные цифры)_', { parse_mode: 'Markdown' });
+    } 
+    else if (text === '👥 Все записи') {
+      bot.sendMessage(chatId, '👥 *Список записей*\n\nЗдесь будет выводиться расписание на ближайшие дни.', { parse_mode: 'Markdown' });
+    }
+    else if (text === '⚙️ Настройки бота') {
+      bot.sendMessage(chatId, '⚙️ *Настройки*\n\nРаздел в разработке. Здесь можно будет добавлять мастеров и менять график.', { parse_mode: 'Markdown' });
+    }
+  }
+
+  // 2. ЛОГИКА МАСТЕРОВ
+  const isMaster = Object.values(MASTERS).includes(chatId.toString());
+
+  if (isMaster) {
+    if (text === '📋 Мое расписание на сегодня') {
+      const today = new Date();
+      const options = { day: 'numeric', month: 'short' };
+      const todayString = today.toLocaleDateString('ru-RU', options).replace('.', ''); 
+
+      const masterId = Object.keys(MASTERS).find(key => MASTERS[key] === chatId.toString());
+      const bookings = await getMasterBookingsByDate(masterId, todayString);
+
+      if (bookings.length === 0) {
+        bot.sendMessage(chatId, `На сегодня (${todayString}) записей пока нет. Отдыхай! ☕`);
+      } else {
+        let replyText = `📅 *Твои записи на сегодня (${todayString}):*\n\n`;
+        bookings.forEach((b, index) => {
+          replyText += `${index + 1}. ⏰ *${b.time}* - ${b.name}\n`;
+          replyText += `   📞 ${b.phone}\n`;
+          replyText += `   ✂️ Услуги: ${b.services.join(', ')}\n`; 
+          replyText += `   💰 Сумма: ${b.total} руб.\n`;
+          replyText += `   Статус: _${b.status}_\n\n`;
+        });
+        bot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
+      }
+    }
+    else if (text === '🗓 Календарь' || text === '📖 Моя история') {
+       bot.sendMessage(chatId, 'Раздел в разработке 🛠️');
+    }
+  }
+});
+
+
 
 // ==========================================
 // API: ПРИЕМ ЗАЯВОК С ВИДЖЕТА И МАРШРУТИЗАЦИЯ
