@@ -169,6 +169,22 @@ bot.on('message', async (msg) => {
 app.post('/api/booking', async (req, res) => {
   const { masterId, masterName, name, phone, date, time, services, total } = req.body;
   try {
+
+    // --- 🛑 НОВАЯ ПРОВЕРКА НА ДВОЙНУЮ ЗАПИСЬ ---
+    const existingBooking = await Booking.findOne({ 
+      masterId: masterId, 
+      date: date, 
+      time: time 
+    });
+
+    if (existingBooking) {
+      console.log(`[ОТКАЗ] Попытка двойной записи: Мастер ${masterId}, ${date} в ${time}`);
+      // Прерываем работу и отправляем виджету ошибку
+      return res.status(400).json({ 
+        success: false, 
+        message: 'К сожалению, это время только что заняли. Пожалуйста, выберите другое.' 
+      });
+    }
     // Создаем новую запись по нашему шаблону
     const newBooking = new Booking({
       masterId: masterId,
