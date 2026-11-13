@@ -166,6 +166,25 @@ bot.on('message', async (msg) => {
 // ==========================================
 // API: ПРИЕМ ЗАЯВОК С ВИДЖЕТА И МАРШРУТИЗАЦИЯ
 // ==========================================
+
+// API: ОТДАЕМ ЗАНЯТЫЕ ЧАСЫ ДЛЯ ВИДЖЕТА
+app.get('/api/booked-times', async (req, res) => {
+  const { masterId, date } = req.query;
+  if (!masterId || !date) return res.json({ bookedTimes: [] });
+
+  try {
+    // Ищем все записи конкретного мастера на выбранную дату
+    const bookings = await Booking.find({ masterId: masterId, date: date });
+    // Собираем только время из этих записей (например, ['14:00', '18:30'])
+    const bookedTimes = bookings.map(b => b.time); 
+    
+    res.json({ bookedTimes: bookedTimes });
+  } catch (error) {
+    console.error('Ошибка получения занятых часов:', error);
+    res.status(500).json({ bookedTimes: [] });
+  }
+});
+
 app.post('/api/booking', async (req, res) => {
   const { masterId, masterName, name, phone, date, time, services, total } = req.body;
   try {
