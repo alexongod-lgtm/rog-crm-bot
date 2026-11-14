@@ -96,6 +96,24 @@ async function getMasterBookingsByDate(masterId, dateString) {
   }
 }
 
+
+// Генерация ближайших 7 дней по МСК для календаря в боте
+function getNext7DaysMsk() {
+  const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+  const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  const today = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const result = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
+    const label = i === 0 ? `Сегодня (${dateStr})` : `${days[d.getDay()]}, ${dateStr}`;
+    result.push({ dateStr, label });
+  }
+  return result;
+}
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -108,15 +126,72 @@ bot.on('message', async (msg) => {
   if (!text || text === '/start') return;
 
   // 1. ЛОГИКА АДМИНА (ВЛАДЕЛЬЦА)
-  if (chatId == OWNER_ID) {
-    if (text.includes('Статистика за день')) {
-      bot.sendMessage(chatId, '📊 *Статистика за сегодня*\n\nНовых записей: 0\nСумма: 0 руб.\n\n_(Скоро мы привяжем сюда реальные цифры)_', { parse_mode: 'Markdown' });
-    } 
-    else if (text.includes('Все записи')) {
-      bot.sendMessage(chatId, '👥 *Список записей*\n\nЗдесь будет выводиться расписание на ближайшие дни.', { parse_mode: 'Markdown' });
+  if (String(chatId) === String(OWNER_ID)) {
+    
+    // Кнопка: Статистика за день (и общая выручка по мастерам)
+    if (text.includes('Статистика за день') || text.includes('Статистика и выручка')) {
+      try {
+        const todayStr = getNext7DaysMsk()[0].dateStr;
+        const todayBookings = await Booking.find({ date: todayStr });
+        const allBookings = await Booking.find({});
+
+        const todaySum = todayBookings.reduce((sum, b) => sum + (Number(b.total) || 0), 0);
+        const totalSum = allBookings.reduce((sum, b) => sum + (Number(b.total) || 0), 0);
+
+        const byMaster = {};
+        allBookings.forEach(b => {
+          const mName = b.masterName || b.masterId || 'Не указан';
+          if (!byMaster[mName]) byMaster[mName] = { count: 0, sum: 0 };
+          byMaster[mName].count += 1;
+          byMaster[mName].sum += Number(b.total) || 0;
+        });
+
+        let statText = `📊 *Статистика за сегодня (${todayStr}):*\n`;
+        statText += `👥 Записей сегодня: *${todayBookings.length}*\n`;
+        statText += `💵 Выручка за день: *${todaySum.toLocaleString('ru-RU')} ₽*\n\n`;
+        statText += `📈 *За всё время:*\n`;
+        statText += `🧾 Всего записей: *${allBookings.length}* на *${totalSum.toLocaleString('ru-RU')} ₽*\n\n`;
+        statText += `💈 *По мастерам:*\n`;
+
+        for (const [mName, info] of Object.entries(byMaster)) {
+          statText += `• *${mName}*: ${info.count} зап. (*${info.sum.toLocaleString('ru-RU')} ₽*)\n`;
+        }
+
+        return bot.sendMessage(chatId, statText, { parse_mode: 'Markdown' });
+      } catch (err) {
+        console.error(err);
+        return bot.sendMessage(chatId, '❌ Ошибка подсчета статистики.');
+      }
     }
-    else if (text.includes('Настройки бота')) {
-      bot.sendMessage(chatId, '⚙️ *Настройки*\n\nРаздел в разработке.', { parse_mode: 'Markdown' });
+
+    // Кнопка: Все записи (открывает интерактивный календарь на 7 дней по всем мастерам)
+    if (text.includes('Все записи') || text.includes('Общий календарь')) {
+      const nextDays = getNext7DaysMsk();
+      const inlineKeyboard = [];
+
+      for (let i = 0; i < nextDays.length; i += 2) {
+        const row = [{ text: nextDays[i].label, callback_data: `ocal_${nextDays[i].dateStr}` }];
+        if (nextDays[i + 1]) {
+          row.push({ text: nextDays[i + 1].label, callback_data: `ocal_${nextDays[i + 1].dateStr}` });
+        }
+        inlineKeyboard.push(row);
+      }
+
+      return bot.sendMessage(chatId, '📅 *Общий календарь барбершопа «РОГ»*\nВыбери день для просмотра всех записей:', {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: inlineKeyboard }
+      });
+    }
+
+    // Кнопка: Настройки бота (быстрая сводка по системе)
+    if (text.includes('Настройки бота')) {
+      let settingsText = `⚙️ *Настройки системы «РОГ»:*\n\n`;
+      settingsText += `👑 Твой ID владельца: \`${OWNER_ID}\`\n`;
+      settingsText += `💈 Подключенные мастера в коде:\n`;
+      for (const [mKey, mTgId] of Object.entries(MASTERS)) {
+        settingsText += `• ID мастера *${mKey}*: \`${mTgId}\`\n`;
+      }
+      return bot.sendMessage(chatId, settingsText, { parse_mode: 'Markdown' });
     }
   }
 
@@ -125,6 +200,57 @@ bot.on('message', async (msg) => {
   if (isMaster) {
     // Используем .includes(), чтобы бот смотрел только на буквы, игнорируя смайлики
     if (text.includes('Мое расписание на сегодня')) {
+      // --- КНОПКА: КАЛЕНДАРЬ МАСТЕРА ---
+    if (text.includes('Календарь')) {
+      const nextDays = getNext7DaysMsk();
+      const inlineKeyboard = [];
+
+      // Раскладываем кнопки дат по 2 в ряд
+      for (let i = 0; i < nextDays.length; i += 2) {
+        const row = [{
+          text: nextDays[i].label,
+          callback_data: `mcal_${masterId}_${nextDays[i].dateStr}`
+        }];
+        if (nextDays[i + 1]) {
+          row.push({
+            text: nextDays[i + 1].label,
+            callback_data: `mcal_${masterId}_${nextDays[i + 1].dateStr}`
+          });
+        }
+        inlineKeyboard.push(row);
+      }
+
+      return bot.sendMessage(chatId, '📅 Выбери день, чтобы посмотреть записи:', {
+        reply_markup: { inline_keyboard: inlineKeyboard }
+      });
+    }
+
+    // --- КНОПКА: МОЯ ИСТОРИЯ И СТАТИСТИКА ---
+    if (text.includes('Моя история')) {
+      try {
+        const allBookings = await Booking.find({ masterId: masterId });
+        if (allBookings.length === 0) {
+          return bot.sendMessage(chatId, '📊 У тебя пока нет записей в базе.');
+        }
+
+        const totalRevenue = allBookings.reduce((sum, b) => sum + (Number(b.total) || 0), 0);
+        const recent = allBookings.slice(-10).reverse();
+
+        let msgText = `📊 *Твоя статистика за всё время:*\n`;
+        msgText += `👥 Всего записей: *${allBookings.length}*\n`;
+        msgText += `💰 Общая сумма: *${totalRevenue.toLocaleString('ru-RU')} ₽*\n\n`;
+        msgText += `🕒 *Последние записи:*\n`;
+
+        recent.forEach((b, idx) => {
+          msgText += `${idx + 1}. *${b.date} в ${b.time}* — ${b.name} (${b.total} ₽)\n`;
+        });
+
+        return bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
+      } catch (err) {
+        console.error('Ошибка получения истории мастера:', err);
+        return bot.sendMessage(chatId, '❌ Ошибка при загрузке истории.');
+      }
+    }
       try {
        // 1. Получаем текущее время по Москве (Сочи), игнорируя часовой пояс сервера Render
        const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
@@ -234,6 +360,131 @@ app.post('/api/booking', async (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+  const data = query.data;
+
+  // --- КЛИК ПО ДАТЕ В ОБЩЕМ КАЛЕНДАРЕ ВЛАДЕЛЬЦА ---
+  if (data.startsWith('ocal_') && data !== 'ocal_back') {
+    const dateStr = data.replace('ocal_', '');
+
+    try {
+      const bookings = await Booking.find({ date: dateStr });
+      bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+      let responseText = `📅 *Все записи барбершопа на ${dateStr}:*\n\n`;
+      let daySum = 0;
+
+      if (bookings.length === 0) {
+        responseText += `На этот день записей пока нет.`;
+      } else {
+        bookings.forEach((b, i) => {
+          daySum += Number(b.total) || 0;
+          const servicesList = Array.isArray(b.services) ? b.services.join(', ') : b.services;
+          responseText += `${i + 1}. 🕒 *${b.time}* — 💈 *${b.masterName || b.masterId}*\n`;
+          responseText += `👤 ${b.name} (${b.phone})\n`;
+          responseText += `✂️ ${servicesList} — *${b.total} ₽*\n\n`;
+        });
+        responseText += `💵 *Сумма за день: ${daySum.toLocaleString('ru-RU')} ₽*`;
+      }
+
+      const backKeyboard = [[{ text: '🔙 Назад к датам', callback_data: 'ocal_back' }]];
+
+      await bot.editMessageText(responseText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: backKeyboard }
+      });
+    } catch (err) {
+      console.error('Ошибка общего календаря:', err);
+    }
+    return bot.answerCallbackQuery(query.id);
+  }
+
+  // --- ВОЗВРАТ К ДАТАМ В ОБЩЕМ КАЛЕНДАРЕ ВЛАДЕЛЬЦА ---
+  if (data === 'ocal_back') {
+    const nextDays = getNext7DaysMsk();
+    const inlineKeyboard = [];
+
+    for (let i = 0; i < nextDays.length; i += 2) {
+      const row = [{ text: nextDays[i].label, callback_data: `ocal_${nextDays[i].dateStr}` }];
+      if (nextDays[i + 1]) {
+        row.push({ text: nextDays[i + 1].label, callback_data: `ocal_${nextDays[i + 1].dateStr}` });
+      }
+      inlineKeyboard.push(row);
+    }
+
+    await bot.editMessageText('📅 *Общий календарь барбершопа*\nВыбери день для просмотра всех записей:', {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: inlineKeyboard }
+    });
+    return bot.answerCallbackQuery(query.id);
+  }
+
+  // Клик по дате в календаре мастера: mcal_ID_ДАТА
+  if (data.startsWith('mcal_')) {
+    const [, masterId, dateStr] = data.split('_');
+
+    try {
+      const bookings = await Booking.find({ masterId: masterId, date: dateStr });
+      bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+      let responseText = `📅 *Расписание на ${dateStr}:*\n\n`;
+
+      if (bookings.length === 0) {
+        responseText += `Записей на этот день пока нет. Свободный день! 😎`;
+      } else {
+        bookings.forEach((b, i) => {
+          const servicesList = Array.isArray(b.services) ? b.services.join(', ') : b.services;
+          responseText += `${i + 1}. 🕒 *${b.time}* — ${b.name}\n`;
+          responseText += `📞 ${b.phone}\n`;
+          responseText += `✂️ ${servicesList}\n`;
+          responseText += `💰 ${b.total} ₽ | Статус: ${b.status || 'ожидает'}\n\n`;
+        });
+      }
+
+      // Кнопка возврата к списку дат
+      const backKeyboard = [[{ text: '🔙 Назад к выбору даты', callback_data: `mcal_back_${masterId}` }]];
+
+      await bot.editMessageText(responseText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: backKeyboard }
+      });
+    } catch (err) {
+      console.error('Ошибка календаря:', err);
+    }
+    return bot.answerCallbackQuery(query.id);
+  }
+
+  // Возврат к сетке дат календаря
+  if (data.startsWith('mcal_back_')) {
+    const masterId = data.replace('mcal_back_', '');
+    const nextDays = getNext7DaysMsk();
+    const inlineKeyboard = [];
+
+    for (let i = 0; i < nextDays.length; i += 2) {
+      const row = [{ text: nextDays[i].label, callback_data: `mcal_${masterId}_${nextDays[i].dateStr}` }];
+      if (nextDays[i + 1]) {
+        row.push({ text: nextDays[i + 1].label, callback_data: `mcal_${masterId}_${nextDays[i + 1].dateStr}` });
+      }
+      inlineKeyboard.push(row);
+    }
+
+    await bot.editMessageText('📅 Выбери день, чтобы посмотреть записи:', {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: { inline_keyboard: inlineKeyboard }
+    });
+    return bot.answerCallbackQuery(query.id);
+  }
 });
 
 // Запуск сервера
