@@ -64,6 +64,7 @@ bot.onText(/\/start/, (msg) => {
       reply_markup: {
         keyboard: [
           ['📋 Мое расписание на сегодня']
+          ['📆 Календарь', '📊 Моя история']
         ],
         resize_keyboard: true
       }
