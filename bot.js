@@ -421,7 +421,7 @@ bot.on('callback_query', async (query) => {
   }
 
   // Клик по дате в календаре мастера: mcal_ID_ДАТА
-  if (data.startsWith('mcal_')) {
+  if (data.startsWith('mcal_') && !data.startsWith('mcal_back_')) {
     const [, masterId, dateStr] = data.split('_');
 
     try {
