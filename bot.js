@@ -63,7 +63,7 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(chatId, '✂️ Привет, мастер! Вот твоя рабочая панель.', {
       reply_markup: {
         keyboard: [
-          ['📋 Мое расписание на сегодня']
+          ['📋 Мое расписание на сегодня'],
           ['📆 Календарь', '📊 Моя история']
         ],
         resize_keyboard: true
