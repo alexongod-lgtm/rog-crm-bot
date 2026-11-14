@@ -196,16 +196,42 @@ bot.on('message', async (msg) => {
   }
 
   // 2. ЛОГИКА МАСТЕРОВ
-
   if (isMaster) {
-    // Используем .includes(), чтобы бот смотрел только на буквы, игнорируя смайлики
+    // Определяем ID мастера (например, 'm1', 'm2') по его Telegram chatId
+    const masterId = Object.keys(MASTERS).find(key => String(MASTERS[key]) === String(chatId));
+
+    // --- КНОПКА 1: МОЕ РАСПИСАНИЕ НА СЕГОДНЯ ---
     if (text.includes('Мое расписание на сегодня')) {
-      // --- КНОПКА: КАЛЕНДАРЬ МАСТЕРА ---
+      const todayStr = getNext7DaysMsk()[0].dateStr;
+      try {
+        const bookings = await Booking.find({ masterId: masterId, date: todayStr });
+        bookings.sort((a, b) => a.time.localeCompare(b.time));
+
+        if (bookings.length === 0) {
+          return bot.sendMessage(chatId, `📅 На сегодня (*${todayStr}*) у тебя записей пока нет. Свободный день! 😎`, { parse_mode: 'Markdown' });
+        }
+
+        let responseText = `📅 *Твое расписание на сегодня (${todayStr}):*\n\n`;
+        bookings.forEach((b, i) => {
+          const servicesList = Array.isArray(b.services) ? b.services.join(', ') : b.services;
+          responseText += `${i + 1}. 🕒 *${b.time}* — ${b.name}\n`;
+          responseText += `📞 ${b.phone}\n`;
+          responseText += `✂️ ${servicesList}\n`;
+          responseText += `💰 ${b.total} ₽\n\n`;
+        });
+
+        return bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+      } catch (err) {
+        console.error('Ошибка расписания на сегодня:', err);
+        return bot.sendMessage(chatId, '❌ Ошибка при загрузке расписания.');
+      }
+    }
+
+    // --- КНОПКА 2: КАЛЕНДАРЬ МАСТЕРА ---
     if (text.includes('Календарь')) {
       const nextDays = getNext7DaysMsk();
       const inlineKeyboard = [];
 
-      // Раскладываем кнопки дат по 2 в ряд
       for (let i = 0; i < nextDays.length; i += 2) {
         const row = [{
           text: nextDays[i].label,
@@ -225,7 +251,7 @@ bot.on('message', async (msg) => {
       });
     }
 
-    // --- КНОПКА: МОЯ ИСТОРИЯ И СТАТИСТИКА ---
+    // --- КНОПКА 3: МОЯ ИСТОРИЯ И СТАТИСТИКА ---
     if (text.includes('Моя история')) {
       try {
         const allBookings = await Booking.find({ masterId: masterId });
@@ -251,42 +277,8 @@ bot.on('message', async (msg) => {
         return bot.sendMessage(chatId, '❌ Ошибка при загрузке истории.');
       }
     }
-      try {
-       // 1. Получаем текущее время по Москве (Сочи), игнорируя часовой пояс сервера Render
-       const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
-       const day = now.getDate();
-       
-       // 2. Жестко задаем месяцы в том виде, в котором их присылает твой виджет
-       const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-       const todayString = `${day} ${months[now.getMonth()]}`;
-
-        const masterId = Object.keys(MASTERS).find(key => MASTERS[key].toString() === chatId.toString());
-        const bookings = await getMasterBookingsByDate(masterId, todayString);
-
-        if (!bookings || bookings.length === 0) {
-          bot.sendMessage(chatId, `На сегодня (${todayString}) записей пока нет. Отдыхай! ☕`);
-        } else {
-          let replyText = `📅 *Твои записи на сегодня (${todayString}):*\n\n`;
-          bookings.forEach((b, index) => {
-            replyText += `${index + 1}. ⏰ *${b.time}* - ${b.name}\n`;
-            replyText += `   📞 ${b.phone}\n`;
-            replyText += `   ✂️ Услуги: ${b.services.join(', ')}\n`; 
-            replyText += `   💰 Сумма: ${b.total} руб.\n`;
-            replyText += `   Статус: _${b.status}_\n\n`;
-          });
-          bot.sendMessage(chatId, replyText, { parse_mode: 'Markdown' });
-        }
-      } catch (error) {
-        // Если что-то сломается внутри сервера, бот пришлет ошибку прямо в чат!
-        bot.sendMessage(chatId, '❌ Произошла ошибка: ' + error.message);
-      }
-    }
-    else if (text.includes('Календарь') || text.includes('Моя история')) {
-       bot.sendMessage(chatId, 'Раздел в разработке 🛠️');
-    }
   }
 });
-
 
 
 // ==========================================
